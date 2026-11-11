@@ -1,0 +1,18 @@
+tempo:
+  # Keep traces for 2 days
+  retention: 48h
+  # Only accept the OTLP envelope, on both counters
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+
+persistence:
+  enabled: true
+  size: 2Gi

@@ -1,0 +1,77 @@
+apiVersion: v1
+data:
+  application-logs.json: |
+    {
+      "uid": "application-logs",
+      "title": "Application Logs",
+      "tags": ["shop", "logs"],
+      "timezone": "browser",
+      "refresh": "30s",
+      "time": { "from": "now-1h", "to": "now" },
+      "schemaVersion": 39,
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Errors (last 5 minutes)",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "gridPos": { "x": 0, "y": 0, "w": 6, "h": 7 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": { "mode": "absolute", "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 1 }
+              ] }
+            },
+            "overrides": []
+          },
+          "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "loki", "uid": "loki" },
+              "queryType": "instant",
+              "expr": "sum(count_over_time({namespace=\"shop\", app=~\"gateway|product|order\"} | json | __error__=\"\" | level >= 50 [5m])) or vector(0)"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "Log volume (lines per minute, by service)",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "gridPos": { "x": 6, "y": 0, "w": 18, "h": 7 },
+          "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "loki", "uid": "loki" },
+              "expr": "sum by (app) (count_over_time({namespace=\"shop\"} [1m]))",
+              "legendFormat": "{{app}}"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "logs",
+          "title": "Recent errors and warnings",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "gridPos": { "x": 0, "y": 7, "w": 24, "h": 12 },
+          "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "loki", "uid": "loki" },
+              "expr": "{namespace=\"shop\", app=~\"gateway|product|order\"} | json | __error__=\"\" | level >= 40"
+            }
+          ]
+        }
+      ]
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    grafana_dashboard: "1"
+  name: dashboard-application-logs
+  namespace: monitoring

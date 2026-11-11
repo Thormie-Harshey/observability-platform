@@ -1,0 +1,217 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product
+  namespace: shop
+  labels:
+    app: product
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product
+  template:
+    metadata:
+      labels:
+        app: product
+    spec:
+      containers:
+        - name: product
+          image: thormie/ecommerce-product:v1.1.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PORT
+              value: "3001"
+            - name: REDIS_URL
+              value: redis://redis:6379
+            - name: CACHE_TTL_SECONDS
+              value: "60"
+            - name: PGHOST
+              value: postgres
+            - name: PGUSER
+              value: ecommerce
+            - name: PGDATABASE
+              value: ecommerce
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: password
+            - name: NODE_OPTIONS
+              value: --require ./tracing.js
+            - name: OTEL_SERVICE_NAME
+              value: product
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://tempo.monitoring.svc.cluster.local:4318
+            - name: OTEL_METRICS_EXPORTER
+              value: none
+            - name: OTEL_LOGS_EXPORTER
+              value: none
+          ports:
+            - containerPort: 3001
+          readinessProbe:
+            tcpSocket:
+              port: 3001
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product
+  namespace: shop
+  labels:
+    app: product
+spec:
+  selector:
+    app: product
+  ports:
+    - name: http
+      port: 3001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order
+  namespace: shop
+  labels:
+    app: order
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order
+  template:
+    metadata:
+      labels:
+        app: order
+    spec:
+      containers:
+        - name: order
+          image: thormie/ecommerce-order:v1.1.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PORT
+              value: "3002"
+            - name: PRODUCT_SERVICE_URL
+              value: http://product:3001
+            - name: PGHOST
+              value: postgres
+            - name: PGUSER
+              value: ecommerce
+            - name: PGDATABASE
+              value: ecommerce
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: password
+            - name: NODE_OPTIONS
+              value: --require ./tracing.js
+            - name: OTEL_SERVICE_NAME
+              value: order
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://tempo.monitoring.svc.cluster.local:4318
+            - name: OTEL_METRICS_EXPORTER
+              value: none
+            - name: OTEL_LOGS_EXPORTER
+              value: none
+          ports:
+            - containerPort: 3002
+          readinessProbe:
+            tcpSocket:
+              port: 3002
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order
+  namespace: shop
+  labels:
+    app: order
+spec:
+  selector:
+    app: order
+  ports:
+    - name: http
+      port: 3002
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: shop
+  labels:
+    app: gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      containers:
+        - name: gateway
+          image: thormie/ecommerce-gateway:v1.1.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PORT
+              value: "3000"
+            - name: PRODUCT_SERVICE_URL
+              value: http://product:3001
+            - name: ORDER_SERVICE_URL
+              value: http://order:3002
+            - name: NODE_OPTIONS
+              value: --require ./tracing.js
+            - name: OTEL_SERVICE_NAME
+              value: gateway
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://tempo.monitoring.svc.cluster.local:4318
+            - name: OTEL_METRICS_EXPORTER
+              value: none
+            - name: OTEL_LOGS_EXPORTER
+              value: none
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: shop
+  labels:
+    app: gateway
+spec:
+  selector:
+    app: gateway
+  ports:
+    - name: http
+      port: 3000

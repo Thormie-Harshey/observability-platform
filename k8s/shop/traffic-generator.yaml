@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-generator
+  namespace: shop
+  labels:
+    app: traffic-generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traffic-generator
+  template:
+    metadata:
+      labels:
+        app: traffic-generator
+    spec:
+      containers:
+        - name: shopper
+          image: curlimages/curl:8.11.1
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              GW=http://gateway:3000
+              JSON="Content-Type: application/json"
+              # Seed three products
+              for p in '{"name":"Laptop stand","price":51.25}' \
+                       '{"name":"USB-C cable","price":9.99}' \
+                       '{"name":"Desk lamp","price":24.50}'; do
+                curl -s -o /dev/null -X POST -H "$JSON" -d "$p" $GW/products
+              done
+              # Shop forever
+              i=0
+              while true; do
+                i=$((i + 1))
+                id=$((i % 3 + 1))
+                curl -s -o /dev/null $GW/products
+                curl -s -o /dev/null $GW/products/$id
+                curl -s -o /dev/null $GW/orders
+                curl -s -o /dev/null -X POST -H "$JSON" \
+                  -d "{\"product_id\":$id,\"quantity\":$((i % 3 + 1))}" $GW/orders
+                [ $((i % 10)) -eq 0 ] && curl -s -o /dev/null $GW/not-a-page
+                sleep 2
+              done
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 32Mi }

@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: shop-services
+  namespace: monitoring
+spec:
+  # Look in the shop namespace...
+  namespaceSelector:
+    matchNames: [shop]
+  # ...for Services labelled app=gateway, product or order
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [gateway, product, order]
+  # ...and read /metrics on their port named "http"
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
